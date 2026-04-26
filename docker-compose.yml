@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  chinese-reader:
+    build: .
+    container_name: chinese-reader
+    restart: unless-stopped
+    ports:
+      - "8001:80"
+    environment:
+      - NODE_ENV=production
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: chinese-reader-tunnel
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - /Users/xxittysnxx/GitHub/quizchat/cloudflared_config.yml:/etc/cloudflared/config.yml
+      - ${HOME}/.cloudflared/546ca386-dc03-48e0-af87-76dc1a292a11.json:/etc/cloudflared/creds.json
+    depends_on:
+      - chinese-reader

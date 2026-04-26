@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
+.reader-content {
+  line-height: 1.8;
+}
+
+.reader-content p {
+  margin-bottom: 1.5em;
+  text-indent: 2em;
+}
+
+.reader-content h3 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 1em;
+  margin-top: 1.5em;
+  text-align: center;
+}
