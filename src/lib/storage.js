@@ -41,7 +41,7 @@ export const storage = {
       title: article.title || '未命名文章',
       updatedAt: article.updatedAt,
       createdAt: article.createdAt,
-      snippet: article.rawHtml ? article.rawHtml.substring(0, 100).replace(/<[^>]+>/g, '') : ''
+      snippet: article.rawHtml ? article.rawHtml.substring(0, 10000).replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().substring(0, 100) : ''
     };
 
     if (isNew) {

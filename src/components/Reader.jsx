@@ -17,10 +17,81 @@ export default function Reader() {
   const [showDictionary, setShowDictionary] = useState(false);
   const [showToc, setShowToc] = useState(false);
   const [chapters, setChapters] = useState([]);
+  const [activeChapterId, setActiveChapterId] = useState('');
   const [showNav, setShowNav] = useState(true);
   
   const contentRef = useRef(null);
   const lastScrollY = useRef(0);
+  const touchStart = useRef({ x: 0, y: 0, time: 0 });
+  const tocScrollRef = useRef(null);
+  const [swipeOffset, setSwipeOffset] = useState(null);
+  const [isSwipingDrawer, setIsSwipingDrawer] = useState(false);
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length > 1) return; // Ignore multi-touch (e.g. pinch to zoom)
+    touchStart.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      time: Date.now()
+    };
+    setIsSwipingDrawer(false);
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length > 1) {
+      setIsSwipingDrawer(false);
+      setSwipeOffset(null);
+      return;
+    }
+    if (!touchStart.current.x) return;
+    
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStart.current.x;
+    const deltaY = currentY - touchStart.current.y;
+    
+    if (!isSwipingDrawer) {
+      if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if ((!showToc && deltaX > 0) || (showToc && deltaX < 0)) {
+          setIsSwipingDrawer(true);
+        }
+      }
+    }
+
+    if (isSwipingDrawer) {
+      const drawerWidth = 320;
+      let newOffset = !showToc ? -drawerWidth + deltaX : deltaX;
+      newOffset = Math.max(-drawerWidth, Math.min(0, newOffset));
+      setSwipeOffset(newOffset);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStart.current.x) return;
+    
+    if (isSwipingDrawer) {
+      const currentX = e.changedTouches[0].clientX;
+      const deltaX = currentX - touchStart.current.x;
+      const velocity = deltaX / (Date.now() - touchStart.current.time);
+      const drawerWidth = 320;
+
+      if (!showToc && (deltaX > drawerWidth / 3 || velocity > 0.5)) {
+        setShowToc(true);
+      } else if (showToc && (deltaX < -drawerWidth / 3 || velocity < -0.5)) {
+        setShowToc(false);
+      }
+    }
+    
+    setSwipeOffset(null);
+    setIsSwipingDrawer(false);
+    touchStart.current = { x: 0, y: 0, time: 0 };
+  };
+
+  const handleContentClick = () => {
+    if (window.getSelection().toString().length > 0) return;
+    setShowNav(!showNav);
+    setShowSettings(false);
+  };
 
   useEffect(() => {
     loadArticle();
@@ -53,6 +124,43 @@ export default function Reader() {
       setChapters(extractedChapters);
     }
   }, [processedHtml, isProcessing]);
+
+  // Scroll Spy Effect
+  useEffect(() => {
+    if (chapters.length === 0) return;
+
+    const handleScrollSpy = () => {
+      let currentId = chapters[0]?.id;
+      for (const chapter of chapters) {
+        const el = document.getElementById(chapter.id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          // If the heading is above or just slightly below the top navbar (80px), it's active
+          if (rect.top <= 120) {
+            currentId = chapter.id;
+          }
+        }
+      }
+      setActiveChapterId(currentId);
+    };
+
+    handleScrollSpy();
+    window.addEventListener('scroll', handleScrollSpy, { passive: true });
+    return () => window.removeEventListener('scroll', handleScrollSpy);
+  }, [chapters]);
+
+  // Auto-scroll TOC to active item when opened
+  useEffect(() => {
+    if (showToc && activeChapterId) {
+      const activeEl = document.getElementById(`toc-${activeChapterId}`);
+      if (activeEl && tocScrollRef.current) {
+        const container = tocScrollRef.current;
+        const scrollPos = activeEl.offsetTop - (container.offsetHeight / 2) + (activeEl.offsetHeight / 2);
+        // Jump directly to the chapter without smooth scroll flash
+        container.scrollTo({ top: scrollPos, behavior: 'instant' });
+      }
+    }
+  }, [showToc]);
 
   const loadArticle = async () => {
     const data = await storage.getArticle(id);
@@ -116,11 +224,16 @@ export default function Reader() {
   if (!article) return <div className="min-h-screen flex items-center justify-center">載入中...</div>;
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      article.theme === 'paper' ? 'bg-[#f4ecd8] text-[#5c4b37]' : 
-      article.theme === 'light' ? 'bg-white text-gray-900' : 
-      'bg-gray-900 text-gray-100'
-    }`}>
+    <div 
+      className={`min-h-screen transition-colors duration-300 ${
+        article.theme === 'paper' ? 'bg-[#f4ecd8] text-[#5c4b37]' : 
+        article.theme === 'light' ? 'bg-white text-gray-900' : 
+        'bg-gray-900 text-gray-100'
+      }`}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
       {/* Top Navigation Bar */}
       <div className={`fixed top-0 left-0 right-0 z-40 transition-transform duration-300 ${showNav ? 'translate-y-0' : '-translate-y-full'}`}>
@@ -145,7 +258,9 @@ export default function Reader() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="fixed top-16 right-4 z-40 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4 w-72 border border-gray-100 dark:border-gray-700 animate-fade-in">
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setShowSettings(false)}></div>
+          <div className="fixed top-16 right-4 z-40 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-4 w-72 border border-gray-100 dark:border-gray-700 animate-fade-in">
           <div className="mb-4">
             <label className="text-sm font-medium mb-2 block">字體大小</label>
             <div className="flex items-center gap-4">
@@ -172,13 +287,25 @@ export default function Reader() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* Article Content */}
       <div 
         className="max-w-3xl mx-auto px-4 sm:px-6 md:px-8 pt-24 pb-32 reader-content"
-        style={{ fontSize: `${article.fontSize || 18}px` }}
+        onClick={handleContentClick}
       >
+        <style dangerouslySetInnerHTML={{__html: `
+          .reader-content .prose p, 
+          .reader-content .prose span, 
+          .reader-content .prose a {
+            font-size: ${article.fontSize || 18}px !important;
+            line-height: 1.8 !important;
+          }
+          .reader-content .prose h3 {
+            font-size: ${(article.fontSize || 18) * 1.35}px !important;
+          }
+        `}} />
         {isProcessing ? (
           <div className="flex flex-col items-center justify-center py-20 animate-pulse">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -202,41 +329,64 @@ export default function Reader() {
       </button>
 
       {/* Table of Contents Sidebar */}
-      {showToc && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex">
-          <div className="w-80 max-w-[80%] bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col">
-            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-              <h3 className="font-bold text-lg flex items-center gap-2"><List className="w-5 h-5"/>目錄</h3>
-              <button onClick={() => setShowToc(false)} className="p-2 -mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1">
-              {chapters.length === 0 ? (
-                <p className="text-gray-500 text-center py-10">找不到章節標題 (需有 h3 標籤)</p>
-              ) : (
-                chapters.map((chap) => (
-                  <button
-                    key={chap.id}
-                    onClick={() => {
-                      setShowToc(false);
-                      const el = document.getElementById(chap.id);
-                      if (el) {
-                        const y = el.getBoundingClientRect().top + window.scrollY - 80;
-                        window.scrollTo({ top: y, behavior: 'smooth' });
-                      }
-                    }}
-                    className="block w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-colors truncate border-b border-gray-50 dark:border-gray-800 last:border-0"
-                  >
-                    {chap.title}
-                  </button>
-                ))
-              )}
-            </div>
+      <div 
+        className={`fixed inset-0 z-50 flex ${
+          swipeOffset !== null ? '' : 'transition-colors duration-300'
+        } ${
+          (showToc || swipeOffset !== null) ? 'pointer-events-auto' : 'pointer-events-none'
+        }`}
+        style={{
+          backgroundColor: swipeOffset !== null
+            ? `rgba(0,0,0, ${0.6 * (1 - Math.abs(swipeOffset) / 320)})`
+            : showToc ? 'rgba(0,0,0,0.6)' : 'transparent'
+        }}
+      >
+        <div 
+          className={`w-80 max-w-[80%] bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col transform ${
+            swipeOffset !== null ? '' : 'transition-transform duration-300'
+          }`}
+          style={{
+            transform: swipeOffset !== null 
+              ? `translateX(${swipeOffset}px)` 
+              : showToc ? 'translateX(0)' : 'translateX(-100%)'
+          }}
+        >
+          <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+            <h3 className="font-bold text-lg flex items-center gap-2"><List className="w-5 h-5"/>目錄</h3>
+            <button onClick={() => setShowToc(false)} className="p-2 -mr-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <div className="flex-1" onClick={() => setShowToc(false)}></div>
+          <div ref={tocScrollRef} className="flex-1 overflow-y-auto p-4 space-y-1">
+            {chapters.length === 0 ? (
+              <p className="text-gray-500 text-center py-10">找不到章節標題 (需有 h3 標籤)</p>
+            ) : (
+              chapters.map((chap) => (
+                <button
+                  key={chap.id}
+                  id={`toc-${chap.id}`}
+                  onClick={() => {
+                    setShowToc(false);
+                    const el = document.getElementById(chap.id);
+                    if (el) {
+                      const y = el.getBoundingClientRect().top + window.scrollY - 80;
+                      window.scrollTo({ top: y, behavior: 'smooth' });
+                    }
+                  }}
+                  className={`block w-full text-left px-4 py-3 rounded-lg transition-colors truncate border-b border-gray-50 dark:border-gray-800 last:border-0 ${
+                    activeChapterId === chap.id
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-bold'
+                      : 'hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400'
+                  }`}
+                >
+                  {chap.title}
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      )}
+        <div className="flex-1" onClick={() => setShowToc(false)}></div>
+      </div>
 
       {/* Modals */}
       <DictionaryModal 

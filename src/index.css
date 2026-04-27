@@ -3,13 +3,21 @@
 @tailwind utilities;
 
 @layer base {
-  body {
+  html, body {
     @apply antialiased;
+    overflow-x: hidden;
+    max-width: 100vw;
   }
 }
 
 .reader-content {
   line-height: 1.8;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.reader-content * {
+  max-width: 100%;
 }
 
 .reader-content p {

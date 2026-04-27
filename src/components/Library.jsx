@@ -96,7 +96,7 @@ export default function Library() {
             >
               <h2 className="text-xl font-bold mb-3 line-clamp-2 pr-8">{article.title}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm line-clamp-3">
-                {article.snippet}...
+                {article.snippet?.replace(/<[^>]*>?/g, '').trim()}...
               </p>
               <div className="mt-4 text-xs text-gray-400">
                 更新於 {new Date(article.updatedAt).toLocaleDateString()}
