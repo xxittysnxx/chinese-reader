@@ -1,17 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 
 export default function DictionaryModal({ isOpen, onClose, replacements, onSave }) {
   const [localReplacements, setLocalReplacements] = useState([]);
+  const scrollRef = useRef(null);
 
-  useEffect(() => {
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  };
+
+  React.useLayoutEffect(() => {
     if (isOpen) {
       setLocalReplacements([...replacements]);
+      scrollToBottom();
     }
   }, [isOpen, replacements]);
 
   const handleAdd = () => {
     setLocalReplacements([...localReplacements, { from: '', to: '', isWord: false }]);
+    // In React 18, state updates are batched. We need to wait for the DOM to update to scroll to the bottom.
+    // Instead of setTimeout, we can just use a queueMicrotask or let another layout effect handle it.
+    // But since the new item needs to be rendered first, useLayoutEffect works if we add a dependency.
+    // Or we just keep setTimeout(..., 0). A 0ms timeout doesn't flash as much as 50ms.
+    setTimeout(scrollToBottom, 0);
   };
 
   const handleRemove = (index) => {
@@ -44,7 +57,7 @@ export default function DictionaryModal({ isOpen, onClose, replacements, onSave 
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
+        <div ref={scrollRef} className="p-6 overflow-y-auto flex-1">
           <p className="text-sm text-gray-500 mb-4">
             設定完全相同的字串替換，例如將「又齊」替換為「博欽」。設定後將自動全篇更新。
           </p>

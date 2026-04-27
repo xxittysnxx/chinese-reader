@@ -292,7 +292,7 @@ export default function Reader() {
 
       {/* Article Content */}
       <div 
-        className="max-w-3xl mx-auto px-4 sm:px-6 md:px-8 pt-24 pb-32 reader-content"
+        className="max-w-3xl mx-auto px-4 sm:px-6 md:px-8 pt-24 pb-32 reader-content relative"
         onClick={handleContentClick}
       >
         <style dangerouslySetInnerHTML={{__html: `
@@ -306,18 +306,19 @@ export default function Reader() {
             font-size: ${(article.fontSize || 18) * 1.35}px !important;
           }
         `}} />
-        {isProcessing ? (
-          <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500">正在處理與轉換文字...</p>
+        
+        {isProcessing && (
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 flex flex-col items-center justify-center p-6 bg-white/90 dark:bg-gray-900/90 rounded-2xl shadow-2xl backdrop-blur-md">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p className="text-gray-700 dark:text-gray-200 font-bold">更新內容中...</p>
           </div>
-        ) : (
-          <div 
-            ref={contentRef}
-            className="prose prose-lg dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: processedHtml }} 
-          />
         )}
+        
+        <div 
+          ref={contentRef}
+          className={`prose prose-lg dark:prose-invert max-w-none transition-opacity duration-300 ${isProcessing ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}
+          dangerouslySetInnerHTML={{ __html: processedHtml }} 
+        />
       </div>
 
       {/* Scroll to top button */}
