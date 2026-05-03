@@ -1,6 +1,6 @@
 # Chinese Web Reader
 
-A pure client-side web application for reading Chinese articles and novels. It supports HTML file uploads, Simplified to Traditional Chinese conversion (with auto-translation of mainland terms to Taiwan terminology), smart global string replacements, and offline browser storage capable of handling massive texts.
+A pure client-side web application for reading Chinese articles and novels. It supports HTML file uploads, Simplified to Traditional Chinese conversion (with auto-translation to Taiwan terminology), smart global string replacements, and offline browser storage capable of handling massive texts.
 
 ## Features
 - **Offline Library (IndexedDB)**: Utilizes `localforage` for storage, allowing you to save novels with millions of characters without hitting the capacity limits of traditional LocalStorage.
