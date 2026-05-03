@@ -93,7 +93,10 @@ export default function Reader() {
     setShowSettings(false);
   };
 
+  const hasJumped = useRef(false);
+
   useEffect(() => {
+    hasJumped.current = false;
     loadArticle();
   }, [id]);
 
@@ -148,6 +151,33 @@ export default function Reader() {
     window.addEventListener('scroll', handleScrollSpy, { passive: true });
     return () => window.removeEventListener('scroll', handleScrollSpy);
   }, [chapters]);
+
+  // Save reading progress when active chapter changes
+  useEffect(() => {
+    if (hasJumped.current && activeChapterId && article && article.lastChapterId !== activeChapterId) {
+      const updated = { ...article, lastChapterId: activeChapterId };
+      setArticle(updated);
+      storage.saveArticle(updated).catch(console.error);
+    }
+  }, [activeChapterId]);
+
+  // Jump to last chapter when content is ready
+  useEffect(() => {
+    if (!isProcessing && chapters.length > 0 && !hasJumped.current) {
+      if (article?.lastChapterId) {
+        setTimeout(() => {
+          const el = document.getElementById(article.lastChapterId);
+          if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 80;
+            window.scrollTo({ top: y, behavior: 'instant' });
+          }
+          hasJumped.current = true;
+        }, 100);
+      } else {
+        hasJumped.current = true;
+      }
+    }
+  }, [isProcessing, chapters, article]);
 
   // Auto-scroll TOC to active item when opened
   useEffect(() => {
